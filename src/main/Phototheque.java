@@ -1,23 +1,31 @@
 package main;
 
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.GridBagLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.File;
 
 import javax.swing.AbstractButton;
+import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.JRadioButtonMenuItem;
-import javax.swing.ButtonGroup;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
-import javax.swing.KeyStroke;
-import javax.swing.ImageIcon;
-import javax.swing.JPanel;
-import javax.swing.JFrame;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
  * Interactive photo browser, or Photothèque. 
@@ -25,97 +33,123 @@ import javax.swing.JFrame;
  * annotate, and organize a collection of photos.
  */
 public class Phototheque extends JFrame implements ActionListener {
-
+	
 	private static final long serialVersionUID = 1L;
+	
+	// Main panel that holds all content.
 	private JPanel contentPane;
 	
-    /*
-     * Menu components.
-     */
-    private JMenuBar menuBar;
-    private JMenu menu;
-    private JRadioButtonMenuItem rbMenuItem;
-    private JMenuItem openMenuItem;
-    private JMenuItem deleteMenuItem;
-    private JMenuItem quitMenuItem;
-
-	/*
-	 * Other components
-	 */
-	private JLabel status;
-    private JFileChooser fc;
+	// Radio button group that holds operations in view menu.
+    private ButtonGroup viewRadioButtons = new ButtonGroup();
     
+	// Bar that shows the status.
+	private JLabel status;
+	
+	// File chooser.
+    private JFileChooser fileChooser;
+    
+	public static void main(String[] args) {
+        javax.swing.SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                createAndShowGUI();
+            }
+        });
+    }
+    
+    /**
+     * Creates the GUI and shows it.
+     */
+    private static void createAndShowGUI() {
+        //Create and set up the window.
+        JFrame frame = new JFrame("Phototheque");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        //Create and set up the content pane.
+        Phototheque phototheque = new Phototheque();
+        frame.setJMenuBar(phototheque.createMenuBar());
+        frame.setContentPane(phototheque.createContentPane());
+        
+        //Display the window.
+        ImageIcon programIcon = createImageIcon("/images/programIcon.png");
+        frame.setIconImage(programIcon.getImage());
+        frame.setSize(900, 600);
+        frame.setExtendedState(MAXIMIZED_BOTH);
+        frame.setMinimumSize(new Dimension(400, 400));
+        frame.setVisible(true);
+    }
+	
     /**
      * Creates the menu bar menuBar, adds operations and returns it.
      * @return JMenuBar menuBar.
      */
     public JMenuBar createMenuBar() {
-        menuBar = new JMenuBar();
-
-        /* 
-         * MENU 1: FILE  
-         */
-        menu = new JMenu("File");
-        menu.setMnemonic(KeyEvent.VK_A);
-        menu.getAccessibleContext().setAccessibleDescription(
-                "All operations dealing with photo files");
-        menuBar.add(menu);
-
-        //Operations in the File menu are added.
-        ImageIcon openIcon = createImageIcon("/images/openIcon.png");
-        openMenuItem = new JMenuItem("Open", openIcon);
-        openMenuItem.setAccelerator(KeyStroke.getKeyStroke(
-                KeyEvent.VK_O, ActionEvent.CTRL_MASK));
-        openMenuItem.addActionListener(this);
-        menu.add(openMenuItem);
-
-        ImageIcon deleteIcon = createImageIcon("/images/deleteIcon.png");
-        deleteMenuItem = new JMenuItem("Delete", deleteIcon);
-        deleteMenuItem.setMnemonic(KeyEvent.VK_DELETE);
-        deleteMenuItem.addActionListener(this);
-        menu.add(deleteMenuItem);
+        JMenuBar menuBar = new JMenuBar();
         
-        ImageIcon quitIcon = createImageIcon("/images/quitIcon.png"); 
-        quitMenuItem = new JMenuItem("Quit", quitIcon);
-        quitMenuItem.addActionListener(this);
-        menu.add(quitMenuItem);
+        // Add the file and view menu to the bar.
+        JMenu fileMenu = addMenuToBar("File", "All operations dealing with photo files", menuBar);
+        JMenu viewMenu = addMenuToBar("View", "All operations dealing with the view", menuBar);
 
-        /* 
-         * MENU 2: VIEW  
-         */
-        menu = new JMenu("View");
-        menu.setMnemonic(KeyEvent.VK_N);
-        menu.getAccessibleContext().setAccessibleDescription(
-                "All options dealing with the view");
-        menuBar.add(menu);
+        // Add the open, delete and quit operation items to the file menu.
+        addItemToMenu("Open", "/images/openIcon.png", fileMenu);
+        addItemToMenu("Delete", "/images/deleteIcon.png", fileMenu);
+        addItemToMenu("Quit", "/images/quitIcon.png", fileMenu);
         
-        //Operations in the View menu are added.
-        ButtonGroup group = new ButtonGroup();
-   
-        rbMenuItem = new JRadioButtonMenuItem("Photo viewer");
-        //Is set to default selected.
-        rbMenuItem.setSelected(true); 
-        rbMenuItem.setMnemonic(KeyEvent.VK_P);
-        group.add(rbMenuItem);
-        rbMenuItem.addActionListener(this);
-        menu.add(rbMenuItem);
-
-        rbMenuItem = new JRadioButtonMenuItem("Browser");
-        rbMenuItem.setMnemonic(KeyEvent.VK_B);
-        group.add(rbMenuItem);
-        rbMenuItem.addActionListener(this);
-        menu.add(rbMenuItem);
-
-        rbMenuItem = new JRadioButtonMenuItem("Split mode");
-        rbMenuItem.setMnemonic(KeyEvent.VK_S);
-        group.add(rbMenuItem);
-        rbMenuItem.addActionListener(this);
-        menu.add(rbMenuItem);
+        // Add the radio menu items to the view menu.
+        addRadioItemToMenu("Photo viewer", true, viewMenu);
+        addRadioItemToMenu("Browser", false, viewMenu);
+        addRadioItemToMenu("Split mode", false, viewMenu);
 
         return menuBar;
     }
+    
+    /**
+     * Adds new menu to menu bar menuBar and returns it.
+     * @param name Name of menu.
+     * @param description Description of menu.
+     * @param menuBar MenuBar where the menu is added.
+     * @return JMenu menu.
+     */
+	private JMenu addMenuToBar(String name, String description, JMenuBar menuBar) {
+    	JMenu menu = new JMenu(name);
+        menu.getAccessibleContext().setAccessibleDescription(description);
+        menuBar.add(menu);	
+        return menu;
+	}
+    
+    /**
+     * Adds operation menu item with its icon path iconPath to JMenu menu.
+     * @param item Operation item to be added to menu.
+     * @param iconPath Path to icon of this operation.
+     * @param menu Menu where the item is added.
+     */
+	private void addItemToMenu(String item, String iconPath, JMenu menu) {
+    	ImageIcon icon = createImageIcon(iconPath);
+        
+    	JMenuItem menuItem = new JMenuItem(item, icon);       
+        menuItem.addActionListener(this);
+        menuItem.setName(item);
+        
+        menu.add(menuItem);	
+	}
 
     /**
+     * Adds operation radio button item, optionally selects it and adds it to button group and JMenu menu.
+     * @param item Operation radio button item to be added to menu.
+     * @param selected Boolean defining if this radio button item should be selected.
+     * @param menu Menu where the item is added.
+     */
+    private void addRadioItemToMenu(String item, Boolean selected, JMenu menu) {
+    	JRadioButtonMenuItem rbMenuItem = new JRadioButtonMenuItem(item);
+    	if (selected) {
+    		rbMenuItem.setSelected(true); 
+    	}
+        rbMenuItem.addActionListener(this);
+        
+        viewRadioButtons.add(rbMenuItem);
+        menu.add(rbMenuItem);
+	}
+    
+	/**
      * Creates container contentPane, adds the programs contents and returns it.
      * @return Container contentPane.
      */
@@ -123,19 +157,19 @@ public class Phototheque extends JFrame implements ActionListener {
         contentPane = new JPanel(new BorderLayout());
         contentPane.setOpaque(true);
 
-        //Instantiate the status bar.
+        // Instantiate the status bar.
         status = new JLabel("ready");
         
-        //Instantiate the tool bar.
+        // Instantiate the tool bar.
         JToolBar toolBar = new JToolBar();
         toolBar.setLayout(new FlowLayout(FlowLayout.CENTER));
         toolBar.setFloatable(false);
         addButtons(toolBar);
 
-        //Add all program items to the content pane.
+        // Add all program items to the content pane.
         contentPane.add(status, BorderLayout.SOUTH);
-        contentPane.add(toolBar, BorderLayout.PAGE_START);
-
+        contentPane.add(toolBar, BorderLayout.NORTH);
+        
         return contentPane;
     }
     
@@ -175,58 +209,65 @@ public class Phototheque extends JFrame implements ActionListener {
     }
     
     /**
-     * Creates the GUI and shows it.
+     * Opens image with name imageName and path imagePath.
+     * @param imagePath String path to the image.
+     * @param imageName String name of the image.
      */
-    private static void createAndShowGUI() {
-        //Create and set up the window.
-        JFrame frame = new JFrame("Phototheque");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        //Create and set up the content pane.
-        Phototheque phototeque = new Phototheque();
-        frame.setJMenuBar(phototeque.createMenuBar());
-        frame.setContentPane(phototeque.createContentPane());
+    public void openPhoto(String imagePath, String imageName) {  	
+    	//Remove existing photo if there.
+    	removePhoto();
+    	
+    	JScrollPane scrollPane = new JScrollPane();
         
-        //Display the window.
-        ImageIcon programIcon = createImageIcon("/images/programIcon.png");
-        frame.setIconImage(programIcon.getImage());
-        frame.setSize(900, 600);
-        frame.setExtendedState(MAXIMIZED_BOTH);
-        frame.setMinimumSize(new Dimension(400, 400));
-        frame.setVisible(true);
+    	//Add photo component in a new JPanel with centered GridBagLayout.
+        PhotoComponent photoComponent = new PhotoComponent(imagePath);
+        photoComponent.setFocusable(true); 
+        photoComponent.requestFocus();
+        
+        JPanel centeredPhotoPanel = new JPanel(new GridBagLayout());
+        centeredPhotoPanel.add(photoComponent);
+        scrollPane.setViewportView(centeredPhotoPanel);
+        
+        //Set scrollPanes properties
+        scrollPane.getViewport().getView().setBackground(Color.gray);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(10);
+        scrollPane.setName("photo");
+        
+        //Add to contentPane.
+        contentPane.add(scrollPane, BorderLayout.CENTER);
+        status.setText("File '" + imageName + "' was opened");
     }
-
-    public static void main(String[] args) {
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                createAndShowGUI();
-            }
-        });
-    }
+    
+    /**
+     * Removes the photo component in the contentPane if it exists.
+     */
+    private void removePhoto() {
+    	for (Component c : contentPane.getComponents()) {
+    		if (c.getName() != null && c.getName().equals("photo")) {
+    			contentPane.remove(c); 	
+            	status.setText("File was removed");
+    			break;
+    		}
+    	}	
+    	status.setText("There is no file to be removed!");
+	}
 	
     /**
      * Defines what happens once an event is detected.
      */
 	@Override
 	public void actionPerformed(ActionEvent e) {
-        //Handle open button action.
-        if (e.getSource() == openMenuItem) {
-        	//Create the file chooser
-            fc = new JFileChooser();
-            
-            int returnVal = fc.showOpenDialog(Phototheque.this);
-            if (returnVal == JFileChooser.APPROVE_OPTION) {           	
-                File file = fc.getSelectedFile();
-                status.setText("File '" + file.getName() + "' was opened");
-            } else {
-            	status.setText("Open command was cancelled");
-            }
-        } else if (e.getSource() == deleteMenuItem){
-        	status.setText("File was deleted");
-        } else if (e.getSource() == quitMenuItem){
+        if (e.getSource().toString().contains("[Open")) {
+        	openFileChooser();        	
+        } else if (e.getSource().toString().contains("[Delete")) {
+        	removePhoto();
+        } else if (e.getSource().toString().contains("[Quit")) {
         	System.exit(getDefaultCloseOperation());
         } else {
-			AbstractButton abstractButton = (AbstractButton) e.getSource();
+			// Show what is currently selected in the status bar.
+        	AbstractButton abstractButton = (AbstractButton) e.getSource();
             
             boolean isSelected = abstractButton.getModel().isSelected();
             String selected = "selected";
@@ -234,6 +275,28 @@ public class Phototheque extends JFrame implements ActionListener {
             	selected = "deselected"; 
             }
             status.setText("'" + abstractButton.getText() + "' was " + selected);
+        }
+	}
+
+	/**
+	 * Opens a file chooser that accepts the choice of 1 photo.
+	 */
+	private void openFileChooser() {
+        // Instantiates file chooser and creates a filter.
+        status.setText("File is being chosen...");
+		fileChooser = new JFileChooser();
+        fileChooser.addChoosableFileFilter(new FileNameExtensionFilter(
+        		"Images (.jpg, .jpeg, .png, .gif, .bmp)", 
+        		"jpg", "jpeg", "png", "gif", "bmp"));
+        fileChooser.setAcceptAllFileFilterUsed(false);
+    	
+        // Handle file selection input.
+    	int returnVal = fileChooser.showOpenDialog(Phototheque.this);
+        if (returnVal == JFileChooser.APPROVE_OPTION) {           	           	
+        	File file = fileChooser.getSelectedFile();
+            openPhoto(file.getPath(), file.getName());
+        } else {
+        	status.setText("Open file was cancelled");
         }
 	}
 }
