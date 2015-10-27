@@ -170,6 +170,8 @@ public class Phototheque extends JFrame implements ActionListener {
         contentPane.add(status, BorderLayout.SOUTH);
         contentPane.add(toolBar, BorderLayout.NORTH);
         
+        //openPhoto("C:/Users/Isha/Code/workspace/SwingTests/src/images/flyingBee.jpg", "flyingBee");
+        
         return contentPane;
     }
     

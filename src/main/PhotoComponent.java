@@ -16,19 +16,10 @@ import java.awt.event.MouseMotionListener;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
-
-/*
- * TODO I have noticed a bug where multiple texts are not well drawn. I have tried many other methods to draw 
- * on multiple lines but turned out to be really, really hard. It is possible with some hacks like deleting 
- * certain characters, but in my opinion it should be possible without this funny stuf and with just the one 
- * structure that stores text and its position (like the Map I used). That is why I left my code like this.
- */
 
 /**
  * Component that stores and shows a photo, 
@@ -49,19 +40,15 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 	 * Structures to save the users drawn strokes (points) and text.
 	 */
 	private ArrayList<Point> drawnPoints = new ArrayList<Point>();
-	private Map<Point, String> drawnText = new LinkedHashMap<Point, String>();
 	
-	/*
-	 * Location point and characters of currently typed text.
-	 */
-	private Point currentTextPoint = null;
-	private String currentText = "";
-	
-	/*
-	 * Other variables to help with text on new lines.
-	 */
+	// Stack of all typed text blocks and + character for separation of points.
 	private String textValue = "";
+	
+	// Number of lines in text blocks.
 	private int lines = 0; 
+	
+	// Positions of text blocks.
+	private ArrayList<Point> textPoints = new ArrayList<Point>();
 	
     public PhotoComponent(String imagePath) { 	
     	try {
@@ -83,7 +70,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
     		System.err.println("The image could not be read");
     	}
     }
-
+    
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -95,7 +82,12 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
         } else {
         	drawCanvas(g2);
         	drawStrokes(g2);
-        	drawText(g2);	
+        	
+        	g2.setPaint(Color.black);
+    		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    		g2.setFont(new Font("Pristina", Font.PLAIN, 16));
+    		
+        	drawText(g2, textValue);	
         }
     }
     
@@ -134,41 +126,79 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 	        }
 	    }
     }
-    
+    int counter = 0;
     /**
      * Draws the users text.
      * @param g2 Graphics of this component.
      */
-    private void drawText(Graphics2D g2) {
-    	g2.setPaint(Color.black);
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2.setFont(new Font("Pristina", Font.PLAIN, 16));
-		
-		for (Map.Entry<Point, String> text : drawnText.entrySet()) {	
-			if (text.getKey() != null) {
-				// Get position of the text.
-				double textX = text.getKey().getX();
-    			double textY = text.getKey().getY();
-    			
-    			// Add the value of the newly added text.
-    			textValue = textValue + text.getValue().substring(text.getValue().length() - 1);
-    			
-    			// Calculate distance from first character of typed text to end of this component.
-    			double photoComponentEnd = this.getX() + this.getWidth();
-    			double distanceToBorder = photoComponentEnd - (this.getX() + textX);
-    			
-    			// If next character ("c") will cross the photo border, put \n there.
-    			if (g2.getFontMetrics().stringWidth(text.getValue() + "c")
-    					- (distanceToBorder * lines) > distanceToBorder) {
-    				lines++;
-    				textValue = textValue + "\n";
-    			}
-
-    			drawString(g2, textValue, (int) textX, (int) textY);
+    private void drawText(Graphics2D g2, String recText) {
+    	//Empty string, nothing needs to be done.
+		if (recText.length() == 0 || recText.equals("+")) {} 		
+		//Remove "+" at the end of the string and recursively draw remaining text.
+		else if (recText.contains("+") && recText.charAt(recText.length() - 1) == '+') {
+			System.out.println("B");
+			drawText(g2, recText.substring(0, recText.length() - 1));
+		} 
+		//Draw last written string and recursively draw remaining text.
+		else if (recText.contains("+")) {			
+			int plusCount = 0;
+			int lastPlusPosition = -1;
+			
+			//Use position of plus to get the correct position of the text.
+			for (int i = 0; i < recText.length(); i++) {
+				if (recText.charAt(i) == '+') {
+					plusCount++;
+					lastPlusPosition = i;
+				}
 			}
+			
+			//Draw string.
+			String text = recText.substring(lastPlusPosition + 1, recText.length());
+			if (text.length() != 0) {
+				prepareForDrawing(g2, text, plusCount);
+			}
+			
+			drawText(g2, recText.substring(0, lastPlusPosition));
 		}
+    	counter++;
     }
     
+	private void prepareForDrawing(Graphics2D g2, String text, int plusCount) {
+		
+		Point pointToDraw = textPoints.get(plusCount - 1);
+		
+		if (pointToDraw != null) {
+			// Get position of the text.
+			double textX = pointToDraw.getX();
+			double textY = pointToDraw.getY();
+			
+			// Add the value of the newly added text.
+			
+			// Calculate distance from first character of typed text to end of this component.
+			double photoComponentEnd = this.getX() + this.getWidth();
+			double distanceToBorder = photoComponentEnd - (this.getX() + textX);
+			
+			String textToDraw = "";
+			lines = 0;
+			
+			for (int i = 0; i < text.length(); i++) {
+				textToDraw = textToDraw + text.charAt(i);
+				
+				/* 
+				 * If next character ("c") will cross the photo border, put \n there.
+				 * Margin of 10px for wrapping.
+				 */
+				if (g2.getFontMetrics().stringWidth(text.substring(0, i) + text.charAt(i) + "c")
+						- ((distanceToBorder-10) * lines) > (distanceToBorder-10)) {
+					lines++;
+					textToDraw = textToDraw + "\n";
+				}
+			}
+			
+			drawString(g2, textToDraw, (int) textX, (int) textY);
+		}
+	}
+
     /**
      * Draws a string. Could draw on multiple lines based on \n characters.
      * @param g2 Graphics that are used to draw the string.
@@ -177,6 +207,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
      * @param y Y position of drawn string.
      */
     private void drawString(Graphics2D g2, String text, int x, int y) {
+    	
     	String[] textSplit = text.split("\n");	
     	
     	for (String line : textSplit) {
@@ -188,26 +219,18 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
     /**
      * Resets variables that keep information on the users typed text to make it possible to 
      * type another text.
-     * TODO This does not work because it erases everything before as well. I have noticed this and
-     * tried many other methods to draw on multiple lines but it is really, really hard. It is possible with
-     * some hacks like deleting characters before, but in my opinion it should be possible with just the one
-     * LinkedMap structure with text and Positions that I used. That is why I left my code like this.
      */
     private void resetTextVariables() {
-		// Reset currently typed text variables.
-		currentText = "";
-		currentTextPoint = null;
 		lines = 0;
 		
-		// Reset textValue (resets all text, makes problem worse)
-		//textValue = "";
+		// Put a "+" sign to show separation of words.
+		textValue = textValue + "+";
     }
     
-	@Override
+    @Override
 	public void mousePressed(MouseEvent e) {
 		// Request a new focus and reset the text variables.
-		this.requestFocusInWindow();
-		resetTextVariables();
+		this.requestFocusInWindow();	
 		
 		// When component is double clicked, it is flipped.
 		if (e.getClickCount() == 2) {
@@ -215,8 +238,10 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
         	repaint();
         } else {
         	if (imageFlipped) {
+        		resetTextVariables();
+        		
         		// Update location of the first character of the current text.
-        		currentTextPoint = e.getPoint();
+        		textPoints.add(e.getPoint());
         	}       	
         }
 	}
@@ -255,19 +280,16 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 				keyCode == KeyEvent.VK_CAPS_LOCK) { 
 			// Do nothing
 		} else if (keyCode != KeyEvent.CHAR_UNDEFINED) {
-			// Update the current text and put it in the map.		
-			currentText = currentText + keyChar;
+			// Update the current text and put on the string that represents a stack
+			textValue = textValue + keyChar;		
 			
-			drawnText.put(currentTextPoint, currentText);
-			
-			drawnText.toString();
 			repaint();
 		}		
 	}
 	
 	@Override
 	public void mouseMoved(MouseEvent e) {}
-
+	
 	@Override
 	public void mouseClicked(MouseEvent e) {}
 
