@@ -6,6 +6,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -14,6 +15,7 @@ import java.io.File;
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
+import javax.swing.JColorChooser;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -25,28 +27,30 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+
+import resources.JFontChooser;
 
 /**
  * Interactive photo browser, or Photothèque. 
  * The final version will allow the user to view, 
  * annotate, and organize a collection of photos.
  */
-public class Phototheque extends JFrame implements ActionListener {
+public class Phototheque extends JFrame implements ActionListener, ChangeListener {
 	
 	private static final long serialVersionUID = 1L;
 	
-	// Main panel that holds all content.
+	/*
+	 * Main panels in menu to hold content
+	 */
 	private JPanel contentPane;
+	private PhotoComponent photoComponent;
+	private JLabel status;
 	
 	// Radio button group that holds operations in view menu.
     private ButtonGroup viewRadioButtons = new ButtonGroup();
-    
-	// Bar that shows the status.
-	private JLabel status;
-	
-	// File chooser.
-    private JFileChooser fileChooser;
     
 	public static void main(String[] args) {
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
@@ -56,6 +60,11 @@ public class Phototheque extends JFrame implements ActionListener {
         });
     }
     
+	/*
+	 * Pop up window that is necessary for user customization.
+	 */
+	private JColorChooser colorChooser;
+	
     /**
      * Creates the GUI and shows it.
      */
@@ -88,6 +97,7 @@ public class Phototheque extends JFrame implements ActionListener {
         // Add the file and view menu to the bar.
         JMenu fileMenu = addMenuToBar("File", "All operations dealing with photo files", menuBar);
         JMenu viewMenu = addMenuToBar("View", "All operations dealing with the view", menuBar);
+        JMenu drawMenu = addMenuToBar("Draw", "All operations dealing with drawing on photo", menuBar);
 
         // Add the open, delete and quit operation items to the file menu.
         addItemToMenu("Open", "/images/openIcon.png", fileMenu);
@@ -98,7 +108,11 @@ public class Phototheque extends JFrame implements ActionListener {
         addRadioItemToMenu("Photo viewer", true, viewMenu);
         addRadioItemToMenu("Browser", false, viewMenu);
         addRadioItemToMenu("Split mode", false, viewMenu);
-
+        
+        // Add customization operations to draw menu.
+        addItemToMenu("Set color", "/images/openIcon.png", drawMenu);
+        addItemToMenu("Set font", "/images/openIcon.png", drawMenu);
+        
         return menuBar;
     }
     
@@ -170,8 +184,6 @@ public class Phototheque extends JFrame implements ActionListener {
         contentPane.add(status, BorderLayout.SOUTH);
         contentPane.add(toolBar, BorderLayout.NORTH);
         
-        //openPhoto("C:/Users/Isha/Code/workspace/SwingTests/src/images/flyingBee.jpg", "flyingBee");
-        
         return contentPane;
     }
     
@@ -221,8 +233,8 @@ public class Phototheque extends JFrame implements ActionListener {
     	
     	JScrollPane scrollPane = new JScrollPane();
         
-    	//Add photo component in a new JPanel with centered GridBagLayout.
-        PhotoComponent photoComponent = new PhotoComponent(imagePath);
+    	//Instantiate photo component in a new JPanel with centered GridBagLayout.
+        photoComponent = new PhotoComponent(imagePath);
         photoComponent.setFocusable(true); 
         photoComponent.requestFocus();
         
@@ -255,7 +267,7 @@ public class Phototheque extends JFrame implements ActionListener {
     	}	
     	status.setText("There is no file to be removed!");
 	}
-	
+    
     /**
      * Defines what happens once an event is detected.
      */
@@ -267,7 +279,12 @@ public class Phototheque extends JFrame implements ActionListener {
         	removePhoto();
         } else if (e.getSource().toString().contains("[Quit")) {
         	System.exit(getDefaultCloseOperation());
-        } else {
+        } else if(e.getSource().toString().contains("[Set color")) {
+        	openColorChooser();
+        } else if(e.getSource().toString().contains("[Set font")) {
+        	openFontChooser();
+        }
+        else {
 			// Show what is currently selected in the status bar.
         	AbstractButton abstractButton = (AbstractButton) e.getSource();
             
@@ -281,24 +298,73 @@ public class Phototheque extends JFrame implements ActionListener {
 	}
 
 	/**
+	 * Opens a font chooser to change the font of the text.
+	 */
+	private void openFontChooser() {
+        //Create and set up the color picker window. 
+		status.setText("Font is being chosen...");
+        JFontChooser fontChooser = new JFontChooser();
+        int result = fontChooser.showDialog(Phototheque.this);
+        if (result == JFontChooser.OK_OPTION)
+        {
+             Font font = fontChooser.getSelectedFont(); 
+             
+             // Pass font to photoComponent.
+             if (photoComponent != null) {
+             	photoComponent.setDrawFont(font);
+             	status.setText("Font was set to " + font.getFontName());
+             }
+        }
+	}
+
+	/**
 	 * Opens a file chooser that accepts the choice of 1 photo.
 	 */
 	private void openFileChooser() {
         // Instantiates file chooser and creates a filter.
         status.setText("File is being chosen...");
-		fileChooser = new JFileChooser();
+		JFileChooser fileChooser = new JFileChooser();
         fileChooser.addChoosableFileFilter(new FileNameExtensionFilter(
         		"Images (.jpg, .jpeg, .png, .gif, .bmp)", 
         		"jpg", "jpeg", "png", "gif", "bmp"));
         fileChooser.setAcceptAllFileFilterUsed(false);
     	
         // Handle file selection input.
-    	int returnVal = fileChooser.showOpenDialog(Phototheque.this);
-        if (returnVal == JFileChooser.APPROVE_OPTION) {           	           	
+    	int result = fileChooser.showOpenDialog(Phototheque.this);
+        if (result == JFileChooser.APPROVE_OPTION) {           	           	
         	File file = fileChooser.getSelectedFile();
             openPhoto(file.getPath(), file.getName());
         } else {
         	status.setText("Open file was cancelled");
+        }
+	}
+
+	/**
+	 * Opens a color chooser to change the color of the text and strokes.
+	 */
+	private void openColorChooser() {
+		//Set up color chooser for setting text color and add to panel
+		status.setText("Color is being chosen...");
+    	JPanel panel = new JPanel(new BorderLayout());
+    	colorChooser = new JColorChooser(Color.black);
+    	colorChooser.getSelectionModel().addChangeListener(this);	
+    	panel.add(colorChooser);
+    	
+        //Create and set up the color picker window.
+        JFrame frame = new JFrame("Color Chooser");
+        frame.setSize(300, 300);
+        frame.setMinimumSize(new Dimension(200, 200));
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setContentPane(panel);
+        frame.setVisible(true);
+	}
+
+	@Override
+	public void stateChanged(ChangeEvent e) {
+		Color color = colorChooser.getColor();
+        if (photoComponent != null) {
+        	photoComponent.setDrawColor(color);
+        	status.setText("Color was set to R:" + color.getRed() + " G:" + color.getGreen() + " B:" + color.getBlue());
         }
 	}
 }

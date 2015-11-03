@@ -21,6 +21,8 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 
+import model.AnnotationModel;
+
 /**
  * Component that stores and shows a photo, 
  * including annotations like strokes and text.
@@ -36,29 +38,34 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 	private Image image;
 	private ImageIcon imageIcon;
 	
-	/*
-	 * Structures to save the users drawn strokes (points) and text.
-	 */
-	private ArrayList<Point> drawnPoints = new ArrayList<Point>();
-	
-	// Stack of all typed text blocks and + character for separation of points.
-	private String textValue = "";
+	//Model used for saving data.
+	private AnnotationModel model;
 	
 	// Number of lines in text blocks.
 	private int lines = 0; 
 	
-	// Positions of text blocks.
-	private ArrayList<Point> textPoints = new ArrayList<Point>();
-	
+	/*
+	 * Variables corresponding to drawing
+	 */
+	private Color drawColor;
+	private Font drawFont;
+
     public PhotoComponent(String imagePath) { 	
     	try {
+    		//Create model for saving data.
+    		model = new AnnotationModel();
+    		
     		// Load image.
     		image = ImageIO.read(new File(imagePath)); //Absolute path
     		imageIcon = new ImageIcon(imagePath);
     		
-    		//Set sizes and listeners of this component.
+    		// Set sizes and listeners of this component.
         	this.setSize(imageIcon.getIconWidth(), imageIcon.getIconHeight());
         	this.setPreferredSize(new Dimension(imageIcon.getIconWidth(), imageIcon.getIconHeight()));
+        	
+        	// Set default drawing variables.
+        	this.setDrawColor(Color.black);
+        	this.setDrawFont(new Font("Pristina", Font.PLAIN, 16));
         	
         	// Adds listeners to this component.
         	this.addMouseListener(this);
@@ -71,6 +78,14 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
     	}
     }
     
+    public void setDrawColor(Color drawColor) {
+    	this.drawColor = drawColor;
+    }
+    
+    public void setDrawFont(Font drawFont) {
+    	this.drawFont = drawFont;
+    }
+    
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -81,13 +96,13 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
         	drawImage(g); 
         } else {
         	drawCanvas(g2);
-        	drawStrokes(g2);
         	
-        	g2.setPaint(Color.black);
+        	g2.setPaint(drawColor);
+    		g2.setFont(drawFont);
     		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-    		g2.setFont(new Font("Pristina", Font.PLAIN, 16));
     		
-        	drawText(g2, textValue);	
+        	drawStrokes(g2);
+        	drawText(g2, model.getTextValue());	
         }
     }
     
@@ -113,9 +128,8 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
      * Draws the users strokes.
      * @param g2 Graphics of this component.
      */
-    private void drawStrokes(Graphics2D g2) {
-		g2.setPaint(Color.black);
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    private void drawStrokes(Graphics2D g2) {    	
+    	ArrayList<Point> drawnPoints = model.getDrawnPoints();
 		
 		for (int i = 0; i < drawnPoints.size() - 2; i++){
 	        if (drawnPoints.get(i) != null && drawnPoints.get(i+1) != null) {
@@ -126,7 +140,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 	        }
 	    }
     }
-    int counter = 0;
+    
     /**
      * Draws the users text.
      * @param g2 Graphics of this component.
@@ -136,7 +150,6 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 		if (recText.length() == 0 || recText.equals("+")) {} 		
 		//Remove "+" at the end of the string and recursively draw remaining text.
 		else if (recText.contains("+") && recText.charAt(recText.length() - 1) == '+') {
-			System.out.println("B");
 			drawText(g2, recText.substring(0, recText.length() - 1));
 		} 
 		//Draw last written string and recursively draw remaining text.
@@ -160,12 +173,11 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 			
 			drawText(g2, recText.substring(0, lastPlusPosition));
 		}
-    	counter++;
     }
     
 	private void prepareForDrawing(Graphics2D g2, String text, int plusCount) {
 		
-		Point pointToDraw = textPoints.get(plusCount - 1);
+		Point pointToDraw = model.getTextPoints().get(plusCount - 1);
 		
 		if (pointToDraw != null) {
 			// Get position of the text.
@@ -224,7 +236,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 		lines = 0;
 		
 		// Put a "+" sign to show separation of words.
-		textValue = textValue + "+";
+		model.setTextValue(model.getTextValue() + "+");
     }
     
     @Override
@@ -241,7 +253,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
         		resetTextVariables();
         		
         		// Update location of the first character of the current text.
-        		textPoints.add(e.getPoint());
+        		model.getTextPoints().add(e.getPoint());
         	}       	
         }
 	}
@@ -250,7 +262,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 	public void mouseReleased(MouseEvent e) {
         if (imageFlipped) {
         	// Add a null value to prevent connecting all points.
-        	drawnPoints.add(null);
+        	model.getDrawnPoints().add(null);
         }
 	}
 	
@@ -258,7 +270,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 	public void mouseDragged(MouseEvent e) {
 		if (imageFlipped) {
 			//Add all drawn points to the array.
-			drawnPoints.add(e.getPoint());
+			model.getDrawnPoints().add(e.getPoint());
 		    repaint();
 		}
 	}
@@ -268,10 +280,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 		int keyCode =  e.getKeyCode();
 		char keyChar = e.getKeyChar();
 		
-		if (keyCode == KeyEvent.VK_ENTER) {
-			// Reset typed text variables to enable typing a new text.
-			resetTextVariables();
-		} else if (keyCode == KeyEvent.VK_SHIFT ||
+		if (keyCode == KeyEvent.VK_SHIFT ||
 				keyCode == KeyEvent.CTRL_DOWN_MASK ||
 				keyCode == KeyEvent.ALT_GRAPH_DOWN_MASK ||
 				keyCode == KeyEvent.ALT_DOWN_MASK ||
@@ -281,7 +290,7 @@ public class PhotoComponent extends JComponent implements MouseListener, MouseMo
 			// Do nothing
 		} else if (keyCode != KeyEvent.CHAR_UNDEFINED) {
 			// Update the current text and put on the string that represents a stack
-			textValue = textValue + keyChar;		
+			model.setTextValue(model.getTextValue() + keyChar);	
 			
 			repaint();
 		}		
