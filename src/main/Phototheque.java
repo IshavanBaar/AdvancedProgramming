@@ -27,16 +27,23 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
+import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import resources.JFontChooser;
+import UI.AbstractPhotoUI;
+
+import component.PhotoComponent;
 
 /**
  * Interactive photo browser, or Photothèque. 
- * The final version will allow the user to view, 
- * annotate, and organize a collection of photos.
+ * Allows the user to view photos and create 
+ * annotations in the form of text and strokes.
+ * 
+ * The drawn color and text font can be set in
+ * the draw menu.
  */
 public class Phototheque extends JFrame implements ActionListener, ChangeListener {
 	
@@ -55,6 +62,7 @@ public class Phototheque extends JFrame implements ActionListener, ChangeListene
 	public static void main(String[] args) {
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             public void run() {
+            	UIManager.put(AbstractPhotoUI.UI_CLASS_ID, "PhotoUI");
                 createAndShowGUI();
             }
         });
@@ -311,7 +319,7 @@ public class Phototheque extends JFrame implements ActionListener, ChangeListene
              
              // Pass font to photoComponent.
              if (photoComponent != null) {
-             	photoComponent.setDrawFont(font);
+             	PhotoComponent.setTextFont(font);
              	status.setText("Font was set to " + font.getFontName());
              }
         }
@@ -362,8 +370,10 @@ public class Phototheque extends JFrame implements ActionListener, ChangeListene
 	@Override
 	public void stateChanged(ChangeEvent e) {
 		Color color = colorChooser.getColor();
-        if (photoComponent != null) {
-        	photoComponent.setDrawColor(color);
+        
+		// Pass color to photoComponent.
+		if (photoComponent != null) {
+        	PhotoComponent.setDrawColor(color);
         	status.setText("Color was set to R:" + color.getRed() + " G:" + color.getGreen() + " B:" + color.getBlue());
         }
 	}
